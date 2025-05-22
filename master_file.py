@@ -11,10 +11,12 @@ import os
 import pickle
 from pynwb import NWBHDF5IO, NWBFile
 from pprint import pprint
+from tempfile import TemporaryDirectory
 
 from local_functions import load_nwb_data, correct_coordinates, create_tetrode_group
 from ks4_params import get_ks4_params
 from sc2_params import get_sc2_params
+from ms5_params import get_ms5_params, get_ms5si_params
 
 import spikeinterface.full as si
 import spikeinterface.extractors as se
@@ -27,13 +29,16 @@ import spikeinterface.exporters as sexp
 import spikeinterface.curation as scur
 import spikeinterface.widgets as sw
 
+import mountainsort5 as ms5
+from mountainsort5.util import create_cached_recording
+
 from probeinterface.plotting import plot_probe, plot_probe_group
 
 from kilosort.io import save_probe
 
 
 # Common parameters
-sorter = 'spykingcircus2' # 'kilosort4' or 'spykingcircus2'
+sorter = 'mountainsort5_si' # 'kilosort4', 'spykingcircus2', 'mountainsort5', or 'mountainsort5_si'
 template_duration = 0.002  # seconds
 channel_distance = 35.0 # microns
 #data_path = '/mnt/c/Users/m329786/Data/sub-MSEL02688_ses-nonstim02_task-none_ieeg.nwb'
@@ -45,7 +50,7 @@ docker_image = 'docker.io/library/ks4-with-spikeinterface'
 si_output_folder = '/mnt/c/Users/m329786/Data/spikeinterface_output' # Output folder for spike sorting results. Should be on a local SSD.
 save_binary = False
 save_probe_file = False
-visualise_data = True
+visualise_data = False
 attach_probe = False
 locations_2D = True
 
@@ -110,7 +115,12 @@ else:
 if sorter == 'kilosort4':
     params = get_ks4_params(recording, channel_distance, template_duration) # type: ignore
 elif sorter == 'spykingcircus2':
-    params = get_sc2_params(recording, channel_distance, template_duration) # type: ignore
+    params = get_sc2_params(channel_distance, template_duration) # type: ignore
+    docker_image = False
+elif sorter == 'mountainsort5':
+    params = get_ms5_params(recording, channel_distance, template_duration) # type: ignore
+elif sorter == 'mountainsort5_si':
+    params = get_ms5si_params(recording, channel_distance, template_duration) # type: ignore
     docker_image = False
 else:
     raise Exception("Unsupported sorter type.")
@@ -123,17 +133,31 @@ if save_binary:
 if save_probe_file:
     if sorter == 'kilosort4':
         save_probe(ks4_probe, cache_path + '/probe_ks4.json')
-    elif sorter == 'spykingcircus2':
+    elif sorter == 'spykingcircus2' or sorter == 'mountainsort5' or sorter == 'mountainsort5_si':
         with open(cache_path + '/si_probegroup.pkl', 'wb') as f:
             pickle.dump(probegroup, f)
 
 # Run the spikesorter
 si_output_folder_specific = si_output_folder + '/' + sorter + '/sorter_output/' + \
                             os.path.basename(data_path)[0:-4]
-sorting = ss.run_sorter(sorter_name=sorter, recording=recording, # type: ignore \
-                        folder=si_output_folder_specific, \
-                        docker_image=docker_image, verbose=True, \
-                        remove_existing_folder=True, **params) # type: ignore
+if sorter == 'mountainsort5':
+    # lazy preprocessing
+    recording_filtered = spre.bandpass_filter(recording, freq_min=300, freq_max=6000, dtype=np.float32)
+    recording_preprocessed: si.BaseRecording = spre.whiten(recording_filtered)
+
+    with TemporaryDirectory(dir='/tmp') as tmpdir:
+        # cache the recording to a temporary directory for efficient reading
+        recording_cached = create_cached_recording(recording_preprocessed, folder=tmpdir)
+
+        # use scheme 2 (not scheme 3 as we don't correct drift)
+        sorting = ms5.sorting_scheme2(recording=recording_cached, sorting_parameters=params)
+else:
+    if sorter == 'mountainsort5_si':
+        sorter = 'mountainsort5'
+    sorting = ss.run_sorter(sorter_name=sorter, recording=recording, # type: ignore \
+                            folder=si_output_folder_specific, \
+                            docker_image=docker_image, verbose=True, \
+                            remove_existing_folder=True, **params) # type: ignore
 print(sorting)
 
 # Export spikesorting results to Phy

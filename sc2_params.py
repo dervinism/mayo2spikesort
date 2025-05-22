@@ -2,23 +2,18 @@ import numpy as np
 from typing import Dict, Union
 from pprint import pprint
 
-import spikeinterface as si
 import spikeinterface.sorters as ss
 
 
-def get_sc2_params(recording:si.BaseRecording, \
-                   channel_distance:float=35.0, template_duration:float=0.002) \
+def get_sc2_params(channel_distance:float=35.0, template_duration:float=0.002) \
     -> Dict[str, Union[str, int, float, np.inf, None, bool, dict]]: # type: ignore
     '''
-    params = get_sc2_params(recording:spikeinterface.core.BaseRecording, \
-              channel_distance:float=35.0, template_duration:float=0.002
+    params = get_sc2_params(channel_distance:float=35.0, template_duration:float=0.002)
 
     spyKING CIRCUS 2 paramaters are stored in this function. Use this function
     to get the base parameters and edit them within your script.
 
     Args:
-        recorder (spikeinterface.core.NwbRecordingExtractor, required,
-            positional): NWB recording exgtractor object.
         channel_distance (float, optional, keyword): float numeric scalar
             denoting minimal distance between recording channels on the probe
             (default=35.0).
