@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
+import json
 import h5py
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ from local_functions import load_nwb_data, correct_coordinates, create_tetrode_g
 from ks4_params import get_ks4_params
 from sc2_params import get_sc2_params
 from ms5_params import get_ms5_params, get_ms5si_params
+from klusta_params import get_klusta_params
 
 import spikeinterface.full as si
 import spikeinterface.extractors as se
@@ -29,30 +31,33 @@ import spikeinterface.exporters as sexp
 import spikeinterface.curation as scur
 import spikeinterface.widgets as sw
 
-import mountainsort5 as ms5
-from mountainsort5.util import create_cached_recording
-
 from probeinterface.plotting import plot_probe, plot_probe_group
 
 from kilosort.io import save_probe
 
 
-# Common parameters
-sorter = 'mountainsort5_si' # 'kilosort4', 'spykingcircus2', 'mountainsort5', or 'mountainsort5_si'
-template_duration = 0.002  # seconds
-channel_distance = 35.0 # microns
-#data_path = '/mnt/c/Users/m329786/Data/sub-MSEL02688_ses-nonstim02_task-none_ieeg.nwb'
-#data_path = '/mnt/c/Users/m329786/Data/sub-MSEL02698_ses-nonstim03_task-none_ieeg.nwb'
-data_path = '/mnt/w/Personal/Martynas/NWB/MSEL_02698/msel_02698_ICU03.nwb'
-#data_path = '/mnt/c/Users/m329786/Data/msel_02698_ICU03.nwb'
-cache_path = '/mnt/c/Users/m329786/Data/spikeinterface_cache' # Extract microelectrode recording data and store it locally as a binary file to be used by spike sorters
-docker_image = 'docker.io/library/ks4-with-spikeinterface'
-si_output_folder = '/mnt/c/Users/m329786/Data/spikeinterface_output' # Output folder for spike sorting results. Should be on a local SSD.
+# User input
+sorter = 'spykingcircus2' # 'kilosort4', 'spykingcircus2', 'mountainsort5', or 'klusta'
 save_binary = False
 save_probe_file = False
 visualise_data = False
 attach_probe = False
 locations_2D = True
+
+# Common settings: I/O
+data_path = '/mnt/c/Users/m329786/Data/msel_02750_ICU02a_micro_data.dat'
+cache_path = '/mnt/c/Users/m329786/Data/spikeinterface_cache' # Extract microelectrode recording data and store it locally as a binary file to be used by spike sorters
+docker_image = 'docker.io/library/ks4-with-spikeinterface'
+si_output_folder = '/mnt/c/Users/m329786/Data/spikeinterface_output' # Output folder for spike sorting results. Should be on a local SSD.
+probe_file = '/mnt/c/Users/m329786/Data/probe_ks4.json'
+
+# Common settings: Parameters
+template_duration = 0.002  # seconds
+channel_distance = 35.0 # microns
+typical_sr = 32000 # Hz
+typical_nChans = 16
+binary_format = 'int16'
+
 
 # Check if the operating system is Linux (because Docker with CUDA is required)
 if not platform.system() == 'Linux':
@@ -64,9 +69,17 @@ if visualise_data:
     load_time_vector = True
 else:
     load_time_vector = False
-recording = se.NwbRecordingExtractor(file_path=data_path, electrical_series_path='acquisition/TimeSeries_32000_Hz', \
-                                     load_time_vector=load_time_vector, use_pynwb=True, \
-                                     cache=True, stream_cache_path=cache_path)
+if data_path.endswith('.dat'):
+    recording = si.read_binary(file_paths=data_path, sampling_frequency=typical_sr, \
+                               num_channels=typical_nChans, dtype=binary_format)
+else:
+    if sorter == 'klusta':
+        recording = se.NwbRecordingExtractor(file_path=data_path, electrical_series_name='TimeSeries_32000_Hz', \
+                                            load_time_vector=load_time_vector)
+    else:
+        recording = se.NwbRecordingExtractor(file_path=data_path, electrical_series_path='acquisition/TimeSeries_32000_Hz', \
+                                            load_time_vector=load_time_vector, use_pynwb=True, \
+                                            cache=True, stream_cache_path=cache_path)
 
 # Visualise the data
 if visualise_data:
@@ -86,27 +99,39 @@ if visualise_data:
     plt.show()
 
 # Extract recording metadata
-electrode_table = load_nwb_data(data_path)
+if not data_path.endswith('.dat'):
+    electrode_table = load_nwb_data(data_path)
 #with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
 #    print(electrode_table)
 
 # Correct electrode channel coordinates, if non-unique
-electrode_table = correct_coordinates(electrode_table)
+if not data_path.endswith('.dat'):
+    electrode_table = correct_coordinates(electrode_table) # type: ignore
 
 # Create a tetrode probe group and attach it to the recording
-tetrode_wire_radius = math.sqrt(channel_distance**2 + channel_distance**2)/2 # microns
-(probegroup, ks4_probe) = create_tetrode_group(electrode_table, tetrode_wire_radius)
-if attach_probe:
-    recording = recording.set_probegroup(probegroup)
-else:
-    if locations_2D:
-        locations = np.column_stack((ks4_probe['xc'], \
-                                     ks4_probe['yc']))
+if not data_path.endswith('.dat'):
+    tetrode_wire_radius = math.sqrt(channel_distance**2 + channel_distance**2)/2 # microns
+    (probegroup, ks4_probe) = create_tetrode_group(electrode_table, tetrode_wire_radius) # type: ignore
+    if attach_probe:
+        recording = recording.set_probegroup(probegroup)
     else:
-        locations = np.column_stack((electrode_table.x.values, \
-                                     electrode_table.y.values, \
-                                     electrode_table.z.values)) # type: ignore
-    recording.set_property("location", locations)
+        if locations_2D:
+            locations = np.column_stack((ks4_probe['xc'], \
+                                        ks4_probe['yc']))
+        else:
+            locations = np.column_stack((electrode_table.x.values, \
+                                        electrode_table.y.values, \
+                                        electrode_table.z.values)) # type: ignore
+        recording.set_property("location", locations)
+        groups = ks4_probe['kcoords']
+        recording.set_channel_groups(groups)
+else:
+    with open(probe_file, "r") as file:
+        ks4_probe = json.load(file)
+        locations = np.column_stack((ks4_probe['xc'], ks4_probe['yc']))
+        recording.set_property("location", locations)
+        groups = ks4_probe['kcoords']
+        recording.set_channel_groups(groups)
 
 # Split recordings based on probe
 #recordings = recording.split_by(property="group")
@@ -114,13 +139,15 @@ else:
 # Set spikesorter parameters
 if sorter == 'kilosort4':
     params = get_ks4_params(recording, channel_distance, template_duration) # type: ignore
+    docker_image = True
 elif sorter == 'spykingcircus2':
     params = get_sc2_params(channel_distance, template_duration) # type: ignore
     docker_image = False
 elif sorter == 'mountainsort5':
-    params = get_ms5_params(recording, channel_distance, template_duration) # type: ignore
-elif sorter == 'mountainsort5_si':
     params = get_ms5si_params(recording, channel_distance, template_duration) # type: ignore
+    docker_image = False
+elif sorter == 'klusta':
+    params = get_klusta_params(recording, channel_distance, template_duration) # type: ignore
     docker_image = False
 else:
     raise Exception("Unsupported sorter type.")
@@ -133,31 +160,23 @@ if save_binary:
 if save_probe_file:
     if sorter == 'kilosort4':
         save_probe(ks4_probe, cache_path + '/probe_ks4.json')
-    elif sorter == 'spykingcircus2' or sorter == 'mountainsort5' or sorter == 'mountainsort5_si':
+    elif not data_path.endswith('.dat'):
         with open(cache_path + '/si_probegroup.pkl', 'wb') as f:
-            pickle.dump(probegroup, f)
+            pickle.dump(probegroup, f) # type: ignore
 
 # Run the spikesorter
+if not sorter == 'kilosort4':
+    recording = si.common_reference(recording)
 si_output_folder_specific = si_output_folder + '/' + sorter + '/sorter_output/' + \
                             os.path.basename(data_path)[0:-4]
-if sorter == 'mountainsort5':
-    # lazy preprocessing
-    recording_filtered = spre.bandpass_filter(recording, freq_min=300, freq_max=6000, dtype=np.float32)
-    recording_preprocessed: si.BaseRecording = spre.whiten(recording_filtered)
-
-    with TemporaryDirectory(dir='/tmp') as tmpdir:
-        # cache the recording to a temporary directory for efficient reading
-        recording_cached = create_cached_recording(recording_preprocessed, folder=tmpdir)
-
-        # use scheme 2 (not scheme 3 as we don't correct drift)
-        sorting = ms5.sorting_scheme2(recording=recording_cached, sorting_parameters=params)
-else:
-    if sorter == 'mountainsort5_si':
-        sorter = 'mountainsort5'
-    sorting = ss.run_sorter(sorter_name=sorter, recording=recording, # type: ignore \
-                            folder=si_output_folder_specific, \
-                            docker_image=docker_image, verbose=True, \
-                            remove_existing_folder=True, **params) # type: ignore
+#sorting = ss.run_sorter(sorter_name=sorter, recording=recording, # type: ignore \
+#                        folder=si_output_folder_specific, \
+#                        docker_image=docker_image, verbose=True, \
+#                        remove_existing_folder=True, **params) # type: ignore
+sorting = ss.run_sorter_by_property(sorter_name=sorter, recording=recording, # type: ignore \
+                                    folder=si_output_folder_specific, \
+                                    docker_image=docker_image, verbose=True, \
+                                    grouping_property='group', **params) # type: ignore
 print(sorting)
 
 # Export spikesorting results to Phy

@@ -28,7 +28,7 @@ def get_ms5_params(recording:si.BaseRecording, \
             denoting template duration in seconds (default=0.002).
     
     Returns:
-        params (dict): a dictionary holding spyking circus 2 parameters. Edit
+        params (dict): a dictionary holding mountainsort 5 parameters. Edit
         these values, if needed.
     '''
 
@@ -80,7 +80,7 @@ def get_ms5si_params(recording:si.BaseRecording, \
             denoting template duration in seconds (default=0.002).
     
     Returns:
-        params (dict): a dictionary holding spyking circus 2 parameters. Edit
+        params (dict): a dictionary holding mountainsort 5 parameters. Edit
         these values, if needed.
     '''
 

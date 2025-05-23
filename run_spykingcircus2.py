@@ -31,7 +31,7 @@ else:
 
 # Load the binary for spikesorting
 recording = si.read_binary(file_paths=binary_file, sampling_frequency=sampling_rate, \
-                                num_channels=nChans, dtype=binary_format)
+                           num_channels=nChans, dtype=binary_format)
 
 # Define recording channel locations
 with open(probe_file, "r") as file:
