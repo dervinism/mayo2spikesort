@@ -95,3 +95,68 @@ def get_sc2_params(channel_distance:float=35.0, template_duration:float=0.002) \
     params['debug'] = False # Boolean to specify if internal data structures made during the sorting should be kept for debugging
     
     return params
+
+
+def get_sc2_params2(channel_distance:float=35.0, template_duration:float=0.002) \
+    -> Dict[str, Union[str, int, float, np.inf, None, bool, dict]]: # type: ignore
+    '''
+    params = get_sc2_params2(channel_distance:float=35.0, template_duration:float=0.002)
+
+    spyKING CIRCUS 2 paramaters are stored in this function. Use this function
+    to get the base parameters and edit them within your script.
+
+    Args:
+        channel_distance (float, optional, keyword): float numeric scalar
+            denoting minimal distance between recording channels on the probe
+            (default=35.0).
+        template_duration (float, optional, keyword): float numeric scalar
+            denoting template duration in seconds (default=0.002).
+    
+    Returns:
+        params (dict): a dictionary holding spyking circus 2 parameters. Edit
+        these values, if needed.
+    '''
+
+    sorter = 'spykingcircus2'
+    params = ss.get_default_sorter_params(sorter)
+    print(sorter+"parameters:")
+    pprint(params)
+
+    params['apply_motion_correction'] = False #True
+    params['apply_preprocessing'] = True
+    params['cache_preprocessing']['delete_cache'] = True
+    params['cache_preprocessing']['memory_limit'] = 0.5
+    params['cache_preprocessing']['mode'] = 'memory'
+    params['clustering']['method'] = 'circus'
+    params['clustering']['method_kwargs'] = {}
+    params['debug'] = False
+    params['detection']['method'] = 'matched_filtering'
+    params['detection']['method_kwargs']['detect_threshold'] = 5
+    params['detection']['method_kwargs']['peak_sign'] = 'neg' # Default='neg'
+    params['filtering']['filter_order'] = 2
+    params['filtering']['freq_max'] = 7000
+    params['filtering']['freq_min'] = 150
+    params['filtering']['ftype'] = 'bessel'
+    params['filtering']['margin_ms'] = 10
+    params['general']['ms_after'] = 1 # Default=2
+    params['general']['ms_before'] = 1 # Default=2
+    params['general']['radius_um'] = channel_distance*2 # Default=100
+    params['job_kwargs']['n_jobs'] = 0.75
+    params['matching']['method'] = 'circus-omp-svd'
+    params['matching']['method_kwargs'] = {}
+    params['merging']['max_distance_um'] = channel_distance*2 # Default=50
+    params['motion_correction']['preset'] = 'dredge_fast'
+    params['multi_units_only'] = False
+    params['seed'] = 42
+    params['selection']['method'] = 'uniform'
+    params['selection']['method_kwargs']['min_n_peaks'] = 100000
+    params['selection']['method_kwargs']['n_peaks_per_channel'] = 5000
+    params['selection']['method_kwargs']['select_per_channel'] = False
+    params['sparsity']['amplitude_mode'] = 'peak_to_peak'
+    params['sparsity']['method'] = 'snr'
+    params['sparsity']['threshold'] = 0.25
+    params['templates_from_svd'] = True
+    params['whitening']['mode'] = 'local'
+    params['whitening']['regularize'] = False
+    
+    return params

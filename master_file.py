@@ -16,7 +16,7 @@ from tempfile import TemporaryDirectory
 
 from local_functions import load_nwb_data, correct_coordinates, create_tetrode_group
 from ks4_params import get_ks4_params
-from sc2_params import get_sc2_params
+from sc2_params import get_sc2_params, get_sc2_params2
 from ms5_params import get_ms5_params, get_ms5si_params
 from klusta_params import get_klusta_params
 
@@ -33,11 +33,11 @@ import spikeinterface.widgets as sw
 
 from probeinterface.plotting import plot_probe, plot_probe_group
 
-from kilosort.io import save_probe
+#from kilosort.io import save_probe
 
 
 # User input
-sorter = 'spykingcircus2' # 'kilosort4', 'spykingcircus2', 'mountainsort5', or 'klusta'
+sorter = 'klusta' # 'kilosort4', 'spykingcircus2', 'mountainsort5', or 'klusta'
 save_binary = False
 save_probe_file = False
 visualise_data = False
@@ -70,8 +70,10 @@ if visualise_data:
 else:
     load_time_vector = False
 if data_path.endswith('.dat'):
+    #recording = si.read_binary(file_paths=data_path, sampling_frequency=typical_sr, \
+    #                           num_channels=typical_nChans, dtype=binary_format)
     recording = si.read_binary(file_paths=data_path, sampling_frequency=typical_sr, \
-                               num_channels=typical_nChans, dtype=binary_format)
+                               num_chan=typical_nChans, dtype=binary_format)
 else:
     if sorter == 'klusta':
         recording = se.NwbRecordingExtractor(file_path=data_path, electrical_series_name='TimeSeries_32000_Hz', \
@@ -120,8 +122,8 @@ if not data_path.endswith('.dat'):
                                         ks4_probe['yc']))
         else:
             locations = np.column_stack((electrode_table.x.values, \
-                                        electrode_table.y.values, \
-                                        electrode_table.z.values)) # type: ignore
+                                         electrode_table.y.values, \
+                                         electrode_table.z.values)) # type: ignore
         recording.set_property("location", locations)
         groups = ks4_probe['kcoords']
         recording.set_channel_groups(groups)
@@ -141,7 +143,8 @@ if sorter == 'kilosort4':
     params = get_ks4_params(recording, channel_distance, template_duration) # type: ignore
     docker_image = True
 elif sorter == 'spykingcircus2':
-    params = get_sc2_params(channel_distance, template_duration) # type: ignore
+    #params = get_sc2_params(channel_distance, template_duration) # type: ignore
+    params = get_sc2_params2(channel_distance, template_duration) # type: ignore
     docker_image = False
 elif sorter == 'mountainsort5':
     params = get_ms5si_params(recording, channel_distance, template_duration) # type: ignore
@@ -165,7 +168,7 @@ if save_probe_file:
             pickle.dump(probegroup, f) # type: ignore
 
 # Run the spikesorter
-if not sorter == 'kilosort4':
+if not sorter == 'mountainsort5':
     recording = si.common_reference(recording)
 si_output_folder_specific = si_output_folder + '/' + sorter + '/sorter_output/' + \
                             os.path.basename(data_path)[0:-4]
@@ -175,6 +178,7 @@ si_output_folder_specific = si_output_folder + '/' + sorter + '/sorter_output/' 
 #                        remove_existing_folder=True, **params) # type: ignore
 sorting = ss.run_sorter_by_property(sorter_name=sorter, recording=recording, # type: ignore \
                                     folder=si_output_folder_specific, \
+                                    working_folder=si_output_folder_specific, \
                                     docker_image=docker_image, verbose=True, \
                                     grouping_property='group', **params) # type: ignore
 print(sorting)

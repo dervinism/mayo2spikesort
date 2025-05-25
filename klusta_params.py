@@ -40,8 +40,8 @@ def get_klusta_params(recording:si.BaseRecording, \
     params['chunk_duration'] = '1s'
     params['adjacency_radius'] = None
     params['detect_sign'] = 0 # Default=-1
-    params['extract_s_after'] = round((template_duration*recording.sampling_frequency)*(2/3)) # Default=32
-    params['extract_s_before'] = round((template_duration*recording.sampling_frequency)/3) # Default=16
+    params['extract_s_after'] = int(round((template_duration*recording.sampling_frequency)*(2/3))) # Default=32
+    params['extract_s_before'] = int(round((template_duration*recording.sampling_frequency)/3)) # Default=16
     #params['max_threads_per_worker'] = 1
     #params['mp_context'] = None
     params['n_features_per_channel'] = 3
