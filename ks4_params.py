@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Union
+#from typing import Dict, Union
 from pprint import pprint
 
 import spikeinterface as si
@@ -7,8 +7,8 @@ import spikeinterface.sorters as ss
 
 
 def get_ks4_params(recording:si.BaseRecording, \
-                   channel_distance:float=35.0, template_duration:float=0.002) \
-    -> Dict[str, Union[str, int, float, np.inf, None, bool]]: # type: ignore
+                   channel_distance:float=35.0, template_duration:float=0.002): \
+    #-> Dict[str, Union[str, int, float, np.inf, None, bool]]: # type: ignore
     '''
     params = get_ks4_params(recording:spikeinterface.core.BaseRecording, \
               channel_distance:float=35.0, template_duration:float=0.002

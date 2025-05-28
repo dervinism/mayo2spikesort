@@ -1,15 +1,14 @@
 import numpy as np
-from typing import Dict, Union
+#from typing import Dict, Union
 from pprint import pprint
 
 import spikeinterface as si
 import spikeinterface.sorters as ss
-import mountainsort5 as ms5
 
 
 def get_klusta_params(recording:si.BaseRecording, \
-                      channel_distance:float=35.0, template_duration:float=0.002) \
-    -> Dict[str, Union[str, int, float, np.inf, None, bool, dict]]: # type: ignore
+                      channel_distance:float=35.0, template_duration:float=0.002): \
+    #-> Dict[str, Union[str, int, float, np.inf, None, bool, dict]]: # type: ignore
     '''
     params = get_klusta_params(recording:spikeinterface.core.BaseRecording, \
               channel_distance:float=35.0, template_duration:float=0.002

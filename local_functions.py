@@ -2,8 +2,6 @@ import pandas as pd
 import numpy as np
 import math
 
-from typing import Optional
-
 from pynwb import NWBHDF5IO, NWBFile
 from probeinterface import Probe, ProbeGroup, generate_tetrode
 
@@ -41,8 +39,8 @@ def correct_coordinates(electrode_table:pd.DataFrame) -> pd.DataFrame:
 
 
 def create_tetrode_group(electrode_table:pd.DataFrame, \
-                         tetrode_wire_radius:float=math.sqrt(35.0**2 + 35.0**2)/2) \
-                        -> tuple[ProbeGroup, dict]:
+                         tetrode_wire_radius:float=math.sqrt(35.0**2 + 35.0**2)/2): \
+                         #-> tuple[ProbeGroup, dict]:
     '''
     Local function for creating a tetrode probe group.
     Each tetrode group is based on each electrode group in the electrode table.

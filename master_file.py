@@ -33,11 +33,11 @@ import spikeinterface.widgets as sw
 
 from probeinterface.plotting import plot_probe, plot_probe_group
 
-#from kilosort.io import save_probe
+from kilosort.io import save_probe
 
 
 # User input
-sorter = 'klusta' # 'kilosort4', 'spykingcircus2', 'mountainsort5', or 'klusta'
+sorter = 'kilosort4' # 'kilosort4', 'spykingcircus2', 'mountainsort5', or 'klusta'
 save_binary = False
 save_probe_file = False
 visualise_data = False
@@ -70,10 +70,10 @@ if visualise_data:
 else:
     load_time_vector = False
 if data_path.endswith('.dat'):
-    #recording = si.read_binary(file_paths=data_path, sampling_frequency=typical_sr, \
-    #                           num_channels=typical_nChans, dtype=binary_format)
     recording = si.read_binary(file_paths=data_path, sampling_frequency=typical_sr, \
-                               num_chan=typical_nChans, dtype=binary_format)
+                               num_channels=typical_nChans, dtype=binary_format)
+    #recording = si.read_binary(file_paths=data_path, sampling_frequency=typical_sr, \
+    #                           num_chan=typical_nChans, dtype=binary_format)
 else:
     if sorter == 'klusta':
         recording = se.NwbRecordingExtractor(file_path=data_path, electrical_series_name='TimeSeries_32000_Hz', \
@@ -126,14 +126,14 @@ if not data_path.endswith('.dat'):
                                          electrode_table.z.values)) # type: ignore
         recording.set_property("location", locations)
         groups = ks4_probe['kcoords']
-        recording.set_channel_groups(groups)
+        recording.set_channel_groups(np.array(groups).astype(int))
 else:
     with open(probe_file, "r") as file:
         ks4_probe = json.load(file)
         locations = np.column_stack((ks4_probe['xc'], ks4_probe['yc']))
         recording.set_property("location", locations)
         groups = ks4_probe['kcoords']
-        recording.set_channel_groups(groups)
+        recording.set_channel_groups(np.array(groups).astype(int))
 
 # Split recordings based on probe
 #recordings = recording.split_by(property="group")
@@ -177,13 +177,16 @@ si_output_folder_specific = si_output_folder + '/' + sorter + '/sorter_output/' 
 #                        docker_image=docker_image, verbose=True, \
 #                        remove_existing_folder=True, **params) # type: ignore
 sorting = ss.run_sorter_by_property(sorter_name=sorter, recording=recording, # type: ignore \
-                                    folder=si_output_folder_specific, \
                                     working_folder=si_output_folder_specific, \
                                     docker_image=docker_image, verbose=True, \
                                     grouping_property='group', **params) # type: ignore
 print(sorting)
 
 # Export spikesorting results to Phy
+if sorter == 'klusta':
+    sorting.save(folder=si_output_folder_specific+'/sorting')
+sorting = si.load(file_or_folder_or_dict=si_output_folder_specific+'/sorting')
+    
 si_analyzer_binary_specific = si_output_folder + '/' + sorter + '/analyzer_binary/' + \
                               os.path.basename(data_path)[0:-4]
 analyzer = si.create_sorting_analyzer(sorting=sorting, recording=recording)
